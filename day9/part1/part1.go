@@ -25,8 +25,8 @@ func main() {
 	numMarble, _ := strconv.Atoi(res[2])
 	fmt.Println(numMarble)
 	curr := &Marble{Point: 0}
-	(*curr).Left = curr
-	(*curr).Right = curr
+	curr.Left = curr
+	curr.Right = curr
 	players := make([]int, numPlayer+1)
 
 	for i := 1; i <= numMarble; i += 1 {
@@ -37,19 +37,19 @@ func main() {
 			}
 			players[player] += i
 			for j := 0; j < 7; j += 1 {
-				curr = (*curr).Left
+				curr = curr.Left
 			}
-			players[player] += (*curr).Point
-			(*curr.Left).Right, (*curr.Right).Left = (*curr).Right, (*curr).Left
-			curr = (*curr).Right
+			players[player] += curr.Point
+			curr.Left.Right, curr.Right.Left = curr.Right, curr.Left
+			curr = curr.Right
 		} else {
 			new := &Marble{Point: i}
-			r1 := (*curr).Right
-			r2 := (*r1).Right
-			(*new).Left = r1
-			(*new).Right = r2
-			(*r2).Left = new
-			(*r1).Right = new
+			r1 := curr.Right
+			r2 := r1.Right
+			new.Left = r1
+			new.Right = r2
+			r2.Left = new
+			r1.Right = new
 			curr = new
 		}
 	}
