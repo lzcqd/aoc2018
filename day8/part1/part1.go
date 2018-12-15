@@ -33,13 +33,6 @@ func main() {
 }
 
 func createTree(i int, array []int) Node {
-	if array[i] == 0 {
-		n := Node{}
-		for j := 0; j < array[i+1]; j += 1 {
-			n.Data = append(n.Data, array[i+2+j])
-		}
-		return n
-	}
 	n := Node{}
 	nextIndex := 2
 	for j := 0; j < array[i]; j += 1 {
@@ -54,9 +47,6 @@ func createTree(i int, array []int) Node {
 }
 
 func getLength(node Node) int {
-	if node.Children == nil {
-		return 2 + len(node.Data)
-	}
 	l := 2
 	for _, c := range node.Children {
 		l += getLength(c)
