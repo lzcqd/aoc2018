@@ -4,90 +4,71 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"regexp"
-	"sort"
+	"strconv"
+	"strings"
 )
 
 type Node struct {
-	Prev, Next []string
+	Children []Node
+	Data     []int
 }
 
 func main() {
 	f, _ := os.Open("../input")
 	defer f.Close()
 	file := bufio.NewScanner(f)
-	nodes := make(map[string]*Node)
-	for file.Scan() {
-		input := file.Text()
-		regex := regexp.MustCompile(`Step ([A-Z]) must be finished before step ([A-Z]) can begin.`)
-		res := regex.FindStringSubmatch(input)
-		_, ok := nodes[res[1]]
-		if !ok {
-			nodes[res[1]] = &Node{}
-		}
-		_, ok = nodes[res[2]]
-		if !ok {
-			nodes[res[2]] = &Node{}
-		}
-		nodes[res[1]].Next = append(nodes[res[1]].Next, res[2])
-		nodes[res[2]].Prev = append(nodes[res[2]].Prev, res[1])
+	file.Scan()
+	input := file.Text()
+	inputs := strings.Split(input, " ")
+	a := make([]int, len(inputs))
+	for i, v := range inputs {
+		a[i], _ = strconv.Atoi(v)
 	}
-	var next []string
-	completed := make(map[string]bool)
-	finish := make(map[string]int)
-	for key, value := range nodes {
-		if value.Prev == nil {
-			next = append(next, key)
-			finish[key] = time(key)
-		}
-	}
+	fmt.Println(a)
 
-	workers := make([]string, 5)
-	var t int
-	for t = 0; len(completed) < len(nodes); t += 1 {
-		for key, value := range finish {
-			if value == t {
-				completed[key] = true
-				for i, w := range workers {
-					if w == key {
-						workers[i] = ""
-					}
-				}
-				for _, nvalue := range nodes[key].Next {
-					_, ok := finish[nvalue]
-					if !ok {
-						all_done := true
-						for _, prev := range nodes[nvalue].Prev {
-							_, done := completed[prev]
-							if !done {
-								all_done = false
-								break
-							}
-						}
-						if all_done {
-							next = append(next, nvalue)
-						}
-					}
-				}
-			}
-		}
-
-		sort.StringSlice(next).Sort()
-		for i, v := range workers {
-			if v == "" && len(next) > 0 {
-				workers[i] = next[0]
-				finish[next[0]] = t + time(next[0])
-				next = next[1:]
-			}
-		}
-		fmt.Println(t)
-		fmt.Println(completed)
-	}
-	fmt.Println(t - 1)
-
+	root := createTree(0, a)
+	fmt.Println(root)
+	r := getValue(root)
+	fmt.Println(r)
 }
 
-func time(s string) int {
-	r := []rune(s)[0]
-	return int(r - 4)
+func createTree(i int, array []int) Node {
+	n := Node{}
+	nextIndex := 2
+	for j := 0; j < array[i]; j += 1 {
+		nextChild := createTree(i+nextIndex, array)
+		n.Children = append(n.Children, nextChild)
+		nextIndex += getLength(nextChild)
+	}
+	for j := 0; j < array[i+1]; j += 1 {
+		n.Data = append(n.Data, array[i+nextIndex+j])
+	}
+	return n
+}
+
+func getLength(node Node) int {
+	l := 2
+	for _, c := range node.Children {
+		l += getLength(c)
+	}
+	l += len(node.Data)
+	return l
+}
+
+func getValue(node Node) int {
+	r := 0
+	if node.Children == nil || len(node.Children) == 0 {
+		for _, d := range node.Data {
+			r += d
+		}
+		return r
+	}
+	for _, d := range node.Data {
+		if d > len(node.Children) {
+			continue
+		}
+		r += getValue(node.Children[d-1])
+	}
+
+	return r
 }
