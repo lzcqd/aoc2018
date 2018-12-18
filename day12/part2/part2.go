@@ -39,13 +39,7 @@ func main() {
 			}
 
 		}
-		for string(plants[0:4]) == "...." {
-			plants = plants[1:]
-			zeroIdx -= 1
-		}
-		for string(plants[len(plants)-4:len(plants)-1]) == "...." {
-			plants = plants[:len(plants)-1]
-		}
+
 		for j := 1; j < 4; j += 1 {
 			if plants[len(plants)-j] == '#' {
 				plants = append(plants, '.')
@@ -65,14 +59,14 @@ func main() {
 			next[c] = v
 		}
 		plants = next
-		prev := sum
+		//prev := sum
 		sum = 0
 		for p := range plants {
 			if plants[p] == '#' {
 				sum += p - zeroIdx
 			}
 		}
-		fmt.Printf("%d-%d-%d\n", i, sum, sum-prev)
+		fmt.Println(string(plants))
 	}
 	fmt.Println(8717 + (50000000000-124)*63)
 
