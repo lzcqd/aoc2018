@@ -4,163 +4,252 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 )
 
 type Point struct {
 	X, Y int
 }
 
-type Cart struct {
-	Dir, Turn rune
+type Node struct {
+	P          Point
+	U, D, L, R *Node
 }
 
+var round int
+
 func main() {
-	f, _ := os.Open("../input")
+	f, _ := os.Open("../sample1")
 	defer f.Close()
 	file := bufio.NewScanner(f)
-	var track [][]rune
+	var nodes [][]*Node
+	goblins := make(map[Point]int)
+	elfs := make(map[Point]int)
+	y := 0
 	for file.Scan() {
-		line := file.Text()
-		track = append(track, []rune(line))
+		line := []rune(file.Text())
+		nodes = append(nodes, make([]*Node, len(line)))
+		for x, v := range line {
+			if v == '.' || v == 'G' || v == 'E' {
+				nodes[y][x] = &Node{P: Point{x, y}}
+				n := nodes[y-1][x]
+				if n != nil {
+					nodes[y][x].U = n
+					n.D = nodes[y][x]
+				}
+				n = nodes[y][x-1]
+				if n != nil {
+					nodes[y][x].L = n
+					n.R = nodes[y][x]
+				}
+				if v == 'G' {
+					goblins[Point{x, y}] = 200
+				} else if v == 'E' {
+					elfs[Point{x, y}] = 200
+				}
+			}
+		}
+		y += 1
 	}
-	carts := make(map[Point]Cart)
-	for y := range track {
-		for x := range track[y] {
-			switch track[y][x] {
-			case '<':
-				fallthrough
-			case '>':
-				carts[Point{x, y}] = Cart{track[y][x], 'l'}
-				track[y][x] = '-'
-			case '^':
-				fallthrough
-			case 'v':
-				carts[Point{x, y}] = Cart{track[y][x], 'l'}
-				track[y][x] = '|'
+	round = 0
+	power := 4
+	orig_goblins := make(map[Point]int)
+	for k, v := range goblins {
+		orig_goblins[k] = v
+	}
+	orig_elfs := make(map[Point]int)
+	for k, v := range elfs {
+		orig_elfs[k] = v
+	}
+	for len(goblins) > 0 {
+		fmt.Printf("round %d\n", round)
+		moved := make(map[Point]bool)
+		for y := range nodes {
+			for x := range nodes[y] {
+				_, ok := moved[Point{x, y}]
+				if ok {
+					continue
+				}
+				_, ok = goblins[Point{x, y}]
+				if ok {
+					turn(Point{x, y}, &elfs, &goblins, &nodes, &moved, 3)
+				} else {
+					_, ok = elfs[Point{x, y}]
+					if ok {
+						turn(Point{x, y}, &goblins, &elfs, &nodes, &moved, power)
+					}
+				}
+
+			}
+		}
+		round += 1
+		if len(elfs) < len(orig_elfs) {
+			power += 1
+
+			for k := range elfs {
+				delete(elfs, k)
+			}
+			for k, v := range orig_elfs {
+				elfs[k] = v
+			}
+			for k := range goblins {
+				delete(goblins, k)
+			}
+			for k, v := range orig_goblins {
+				goblins[k] = v
+			}
+			round = 0
+		}
+	}
+	fmt.Println(power)
+	sum := 0
+	if len(goblins) > 0 {
+		for _, h := range goblins {
+			sum += h
+		}
+	} else {
+		for _, h := range elfs {
+			sum += h
+		}
+	}
+	fmt.Println(round)
+	fmt.Println(sum)
+	fmt.Println(round * sum)
+}
+
+func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*Node, moved *map[Point]bool, power int) {
+	var nearby []Point
+	findEnemy(&nearby, p.X, p.Y-1, enemies)
+	findEnemy(&nearby, p.X-1, p.Y, enemies)
+	findEnemy(&nearby, p.X+1, p.Y, enemies)
+	findEnemy(&nearby, p.X, p.Y+1, enemies)
+
+	if len(nearby) > 0 {
+		min := 300
+		var attack Point
+		for _, e := range nearby {
+			if (*enemies)[e] < min {
+				min = (*enemies)[e]
+				attack = e
+			}
+		}
+		(*enemies)[attack] -= power
+		fmt.Printf("%d, %d attacks %d, %d, %d remains\n", p.X, p.Y, attack.X, attack.Y, (*enemies)[attack])
+		if (*enemies)[attack] < 1 {
+			fmt.Printf("%d %d die\n", attack.X, attack.Y)
+			delete(*enemies, attack)
+		}
+		return
+	}
+	next := []Point{p}
+	visited := make(map[Point]bool)
+	visited[p] = true
+	prev := make(map[Point]Point)
+	for len(next) > 0 {
+		n := next[0]
+		next = next[1:]
+		_, ok := (*enemies)[n]
+		if ok {
+			for prev[n] != p {
+				n = prev[n]
+			}
+			if n.Y < p.Y {
+				fmt.Printf("%d, %d moves up\n", p.X, p.Y)
+				(*allies)[Point{p.X, p.Y - 1}] = (*allies)[Point{p.X, p.Y}]
+				delete(*allies, p)
+				p.Y = p.Y - 1
+				break
+			} else if n.X < p.X {
+				fmt.Printf("%d, %d moves left\n", p.X, p.Y)
+				(*allies)[Point{p.X - 1, p.Y}] = (*allies)[Point{p.X, p.Y}]
+				delete(*allies, p)
+				p.X = p.X - 1
+				break
+
+			} else if n.X > p.X {
+				fmt.Printf("%d, %d moves right\n", p.X, p.Y)
+				(*allies)[Point{p.X + 1, p.Y}] = (*allies)[Point{p.X, p.Y}]
+				delete(*allies, p)
+				(*moved)[Point{p.X + 1, p.Y}] = true
+				p.X = p.X + 1
+				break
+			} else {
+				fmt.Printf("%d, %d moves down\n", p.X, p.Y)
+				(*allies)[Point{p.X, p.Y + 1}] = (*allies)[Point{p.X, p.Y}]
+				delete(*allies, p)
+				(*moved)[Point{p.X, p.Y + 1}] = true
+				p.Y = p.Y + 1
+				break
+			}
+		}
+		up := (*nodes)[n.Y][n.X].U
+		if up != nil {
+			_, ok = (*allies)[up.P]
+			_, seen := visited[up.P]
+			if !ok && !seen {
+				next = append(next, up.P)
+				prev[up.P] = n
+				visited[up.P] = true
+			}
+		}
+		left := (*nodes)[n.Y][n.X].L
+		if left != nil {
+			_, ok = (*allies)[left.P]
+			_, seen := visited[left.P]
+			if !ok && !seen {
+				next = append(next, left.P)
+				prev[left.P] = n
+				visited[left.P] = true
+			}
+		}
+		right := (*nodes)[n.Y][n.X].R
+		if right != nil {
+			_, ok = (*allies)[right.P]
+			_, seen := visited[right.P]
+			if !ok && !seen {
+				next = append(next, right.P)
+				prev[right.P] = n
+				visited[right.P] = true
+			}
+		}
+		down := (*nodes)[n.Y][n.X].D
+		if down != nil {
+			_, ok = (*allies)[down.P]
+			_, seen := visited[down.P]
+			if !ok && !seen {
+				next = append(next, down.P)
+				prev[down.P] = n
+				visited[down.P] = true
 			}
 		}
 	}
-	fmt.Println(len(carts))
-	for {
-		var keys []Point
-		for k := range carts {
-			keys = append(keys, k)
+	var nearby2 []Point
+	findEnemy(&nearby2, p.X, p.Y-1, enemies)
+	findEnemy(&nearby2, p.X-1, p.Y, enemies)
+	findEnemy(&nearby2, p.X+1, p.Y, enemies)
+	findEnemy(&nearby2, p.X, p.Y+1, enemies)
+
+	if len(nearby2) > 0 {
+		min := 300
+		var attack Point
+		for _, e := range nearby2 {
+			if (*enemies)[e] < min {
+				min = (*enemies)[e]
+				attack = e
+			}
 		}
-		sort.SliceStable(keys, func(i, j int) bool {
-			if keys[i].Y < keys[j].Y {
-				return true
-			}
-			if keys[i].Y > keys[j].Y {
-				return false
-			}
-			if keys[i].X < keys[j].X {
-				return true
-			}
-			if keys[i].X > keys[j].X {
-				return false
-			}
-			return true
-		})
-
-		for _, k := range keys {
-			cart, exist := carts[k]
-			if !exist {
-				continue
-			}
-			x, y := k.X, k.Y
-			switch cart.Dir {
-			case '<':
-				x -= 1
-			case '>':
-				x += 1
-			case '^':
-				y -= 1
-			case 'v':
-				y += 1
-			default:
-			}
-			_, ok := carts[Point{x, y}]
-			if ok {
-				delete(carts, Point{x, y})
-				delete(carts, k)
-				continue
-			}
-
-			delete(carts, k)
-			n := cart.Dir
-			switch track[y][x] {
-			case '/':
-				switch n {
-				case '>':
-					n = '^'
-				case '<':
-					n = 'v'
-				case '^':
-					n = '>'
-				case 'v':
-					n = '<'
-				default:
-				}
-			case '\\':
-				switch n {
-				case '>':
-					n = 'v'
-				case '<':
-					n = '^'
-				case '^':
-					n = '<'
-				case 'v':
-					n = '>'
-				default:
-				}
-			case '+':
-				switch cart.Turn {
-				case 'l':
-					cart.Turn = 's'
-					switch n {
-					case '>':
-						n = '^'
-					case '<':
-						n = 'v'
-					case '^':
-						n = '<'
-					case 'v':
-						n = '>'
-					default:
-					}
-
-				case 's':
-					cart.Turn = 'r'
-
-				case 'r':
-					cart.Turn = 'l'
-					switch n {
-					case '>':
-						n = 'v'
-					case '<':
-						n = '^'
-					case '^':
-						n = '>'
-					case 'v':
-						n = '<'
-					default:
-					}
-
-				default:
-				}
-
-			default:
-			}
-			cart.Dir = n
-			carts[Point{x, y}] = cart
+		(*enemies)[attack] -= power
+		fmt.Printf("%d, %d attacks %d, %d, %d remains\n", p.X, p.Y, attack.X, attack.Y, (*enemies)[attack])
+		if (*enemies)[attack] < 1 {
+			fmt.Printf("%d %d die\n", attack.X, attack.Y)
+			delete(*enemies, attack)
 		}
-		if len(carts) == 1 {
-			for k := range carts {
-				fmt.Println(k.X)
-				fmt.Println(k.Y)
-			}
-			return
-		}
+	}
+
+}
+
+func findEnemy(nearby *[]Point, x int, y int, enemies *map[Point]int) {
+	_, ok := (*enemies)[Point{x, y}]
+	if ok {
+		*nearby = append(*nearby, Point{x, y})
 	}
 }

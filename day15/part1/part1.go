@@ -15,6 +15,8 @@ type Node struct {
 	U, D, L, R *Node
 }
 
+var round int
+
 func main() {
 	f, _ := os.Open("../sample")
 	defer f.Close()
@@ -48,7 +50,7 @@ func main() {
 		}
 		y += 1
 	}
-	round := 1
+	round = 0
 	for len(goblins) > 0 && len(elfs) > 0 {
 		fmt.Printf("round %d\n", round)
 		moved := make(map[Point]bool)
@@ -60,11 +62,11 @@ func main() {
 				}
 				_, ok = goblins[Point{x, y}]
 				if ok {
-					turn(Point{x, y}, &elfs, &goblins, &nodes, &moved, round)
+					turn(Point{x, y}, &elfs, &goblins, &nodes, &moved)
 				} else {
 					_, ok = elfs[Point{x, y}]
 					if ok {
-						turn(Point{x, y}, &goblins, &elfs, &nodes, &moved, round)
+						turn(Point{x, y}, &goblins, &elfs, &nodes, &moved)
 					}
 				}
 
@@ -72,7 +74,6 @@ func main() {
 		}
 		round += 1
 	}
-	fmt.Println(round)
 	sum := 0
 	if len(goblins) > 0 {
 		for _, h := range goblins {
@@ -83,11 +84,12 @@ func main() {
 			sum += h
 		}
 	}
+	fmt.Println(round)
 	fmt.Println(sum)
-	fmt.Println(round * sum)
+	fmt.Println((round - 1) * sum)
 }
 
-func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*Node, moved *map[Point]bool, round int) {
+func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*Node, moved *map[Point]bool) {
 	var nearby []Point
 	findEnemy(&nearby, p.X, p.Y-1, enemies)
 	findEnemy(&nearby, p.X-1, p.Y, enemies)
@@ -106,7 +108,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 		(*enemies)[attack] -= 3
 		fmt.Printf("%d, %d attacks %d, %d, %d remains\n", p.X, p.Y, attack.X, attack.Y, (*enemies)[attack])
 		if (*enemies)[attack] < 1 {
-			fmt.Printf("%d %d die\n", attack.X, attack.Y, round)
+			fmt.Printf("%d %d die\n", attack.X, attack.Y)
 			delete(*enemies, attack)
 		}
 		return
@@ -114,12 +116,15 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 	next := []Point{p}
 	visited := make(map[Point]bool)
 	visited[p] = true
-
+	prev := make(map[Point]Point)
 	for len(next) > 0 {
 		n := next[0]
 		next = next[1:]
 		_, ok := (*enemies)[n]
 		if ok {
+			for prev[n] != p {
+				n = prev[n]
+			}
 			if n.Y < p.Y {
 				fmt.Printf("%d, %d moves up\n", p.X, p.Y)
 				(*allies)[Point{p.X, p.Y - 1}] = (*allies)[Point{p.X, p.Y}]
@@ -155,6 +160,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 			_, seen := visited[up.P]
 			if !ok && !seen {
 				next = append(next, up.P)
+				prev[up.P] = n
 				visited[up.P] = true
 			}
 		}
@@ -164,6 +170,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 			_, seen := visited[left.P]
 			if !ok && !seen {
 				next = append(next, left.P)
+				prev[left.P] = n
 				visited[left.P] = true
 			}
 		}
@@ -173,6 +180,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 			_, seen := visited[right.P]
 			if !ok && !seen {
 				next = append(next, right.P)
+				prev[right.P] = n
 				visited[right.P] = true
 			}
 		}
@@ -182,6 +190,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 			_, seen := visited[down.P]
 			if !ok && !seen {
 				next = append(next, down.P)
+				prev[down.P] = n
 				visited[down.P] = true
 			}
 		}
@@ -204,7 +213,7 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 		(*enemies)[attack] -= 3
 		fmt.Printf("%d, %d attacks %d, %d, %d remains\n", p.X, p.Y, attack.X, attack.Y, (*enemies)[attack])
 		if (*enemies)[attack] < 1 {
-			fmt.Printf("%d %d die\n", attack.X, attack.Y, round)
+			fmt.Printf("%d %d die\n", attack.X, attack.Y)
 			delete(*enemies, attack)
 		}
 	}
