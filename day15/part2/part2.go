@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 )
 
 type Point struct {
@@ -18,7 +19,7 @@ type Node struct {
 var round int
 
 func main() {
-	f, _ := os.Open("../sample1")
+	f, _ := os.Open("../input")
 	defer f.Close()
 	file := bufio.NewScanner(f)
 	var nodes [][]*Node
@@ -56,11 +57,15 @@ func main() {
 	for k, v := range goblins {
 		orig_goblins[k] = v
 	}
+	fmt.Printf("orig goblins: %v", orig_goblins)
 	orig_elfs := make(map[Point]int)
 	for k, v := range elfs {
 		orig_elfs[k] = v
 	}
 	for len(goblins) > 0 {
+		fmt.Println(goblins)
+		fmt.Println(orig_goblins)
+		round += 1
 		fmt.Printf("round %d\n", round)
 		moved := make(map[Point]bool)
 		for y := range nodes {
@@ -81,22 +86,51 @@ func main() {
 
 			}
 		}
-		round += 1
-		if len(elfs) < len(orig_elfs) {
-			power += 1
-
-			for k := range elfs {
+		for k, v := range goblins {
+			if v == 0 {
+				delete(goblins, k)
+			}
+		}
+		for k, v := range elfs {
+			if v == 0 {
 				delete(elfs, k)
 			}
+		}
+		for y := range nodes {
+			collect := ""
+			for x := range nodes[y] {
+				_, ok := goblins[Point{x, y}]
+				if ok {
+					collect += "G"
+					continue
+				}
+				_, ok = elfs[Point{x, y}]
+				if ok {
+					collect += "E"
+					continue
+				}
+				if nodes[y][x] == nil {
+					collect += "#"
+				} else {
+					collect += "."
+				}
+			}
+			if power > 14 {
+				fmt.Println(collect)
+			}
+		}
+		if len(elfs) < len(orig_elfs) {
+			power += 1
+			fmt.Printf("reset power to %d\n", power)
+			elfs = make(map[Point]int)
 			for k, v := range orig_elfs {
 				elfs[k] = v
 			}
-			for k := range goblins {
-				delete(goblins, k)
-			}
+			goblins = make(map[Point]int)
 			for k, v := range orig_goblins {
 				goblins[k] = v
 			}
+			fmt.Printf("goblins after reset: %v\n", goblins)
 			round = 0
 		}
 	}
@@ -144,84 +178,97 @@ func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*No
 	visited := make(map[Point]bool)
 	visited[p] = true
 	prev := make(map[Point]Point)
-	for len(next) > 0 {
-		n := next[0]
-		next = next[1:]
-		_, ok := (*enemies)[n]
-		if ok {
-			for prev[n] != p {
-				n = prev[n]
-			}
-			if n.Y < p.Y {
-				fmt.Printf("%d, %d moves up\n", p.X, p.Y)
-				(*allies)[Point{p.X, p.Y - 1}] = (*allies)[Point{p.X, p.Y}]
-				delete(*allies, p)
-				p.Y = p.Y - 1
-				break
-			} else if n.X < p.X {
-				fmt.Printf("%d, %d moves left\n", p.X, p.Y)
-				(*allies)[Point{p.X - 1, p.Y}] = (*allies)[Point{p.X, p.Y}]
-				delete(*allies, p)
-				p.X = p.X - 1
-				break
+	found := false
+	var targets []Point
 
-			} else if n.X > p.X {
-				fmt.Printf("%d, %d moves right\n", p.X, p.Y)
-				(*allies)[Point{p.X + 1, p.Y}] = (*allies)[Point{p.X, p.Y}]
-				delete(*allies, p)
-				(*moved)[Point{p.X + 1, p.Y}] = true
-				p.X = p.X + 1
-				break
-			} else {
-				fmt.Printf("%d, %d moves down\n", p.X, p.Y)
-				(*allies)[Point{p.X, p.Y + 1}] = (*allies)[Point{p.X, p.Y}]
-				delete(*allies, p)
-				(*moved)[Point{p.X, p.Y + 1}] = true
-				p.Y = p.Y + 1
-				break
+	for {
+		var nextLevel []Point
+		for _, n := range next {
+			_, ok := (*enemies)[n]
+			if ok {
+				found = true
+				targets = append(targets, n)
+				continue
+			}
+			if found {
+				continue
+			}
+			up := (*nodes)[n.Y][n.X].U
+			if up != nil {
+				_, ok = (*allies)[up.P]
+				_, seen := visited[up.P]
+				if !ok && !seen {
+					nextLevel = append(nextLevel, up.P)
+					prev[up.P] = n
+					visited[up.P] = true
+				}
+			}
+			left := (*nodes)[n.Y][n.X].L
+			if left != nil {
+				_, ok = (*allies)[left.P]
+				_, seen := visited[left.P]
+				if !ok && !seen {
+					nextLevel = append(nextLevel, left.P)
+					prev[left.P] = n
+					visited[left.P] = true
+				}
+			}
+			right := (*nodes)[n.Y][n.X].R
+			if right != nil {
+				_, ok = (*allies)[right.P]
+				_, seen := visited[right.P]
+				if !ok && !seen {
+					nextLevel = append(nextLevel, right.P)
+					prev[right.P] = n
+					visited[right.P] = true
+				}
+			}
+			down := (*nodes)[n.Y][n.X].D
+			if down != nil {
+				_, ok = (*allies)[down.P]
+				_, seen := visited[down.P]
+				if !ok && !seen {
+					nextLevel = append(nextLevel, down.P)
+					prev[down.P] = n
+					visited[down.P] = true
+				}
 			}
 		}
-		up := (*nodes)[n.Y][n.X].U
-		if up != nil {
-			_, ok = (*allies)[up.P]
-			_, seen := visited[up.P]
-			if !ok && !seen {
-				next = append(next, up.P)
-				prev[up.P] = n
-				visited[up.P] = true
-			}
+		if !found {
+			next = nextLevel
 		}
-		left := (*nodes)[n.Y][n.X].L
-		if left != nil {
-			_, ok = (*allies)[left.P]
-			_, seen := visited[left.P]
-			if !ok && !seen {
-				next = append(next, left.P)
-				prev[left.P] = n
-				visited[left.P] = true
-			}
-		}
-		right := (*nodes)[n.Y][n.X].R
-		if right != nil {
-			_, ok = (*allies)[right.P]
-			_, seen := visited[right.P]
-			if !ok && !seen {
-				next = append(next, right.P)
-				prev[right.P] = n
-				visited[right.P] = true
-			}
-		}
-		down := (*nodes)[n.Y][n.X].D
-		if down != nil {
-			_, ok = (*allies)[down.P]
-			_, seen := visited[down.P]
-			if !ok && !seen {
-				next = append(next, down.P)
-				prev[down.P] = n
-				visited[down.P] = true
-			}
+		if len(nextLevel) == 0 || found {
+			break
 		}
 	}
+	if len(targets) == 0 {
+		return
+	}
+	sort.SliceStable(targets, func(i, j int) bool {
+		if targets[i].Y < targets[j].Y {
+			return true
+		}
+		if targets[i].Y > targets[j].Y {
+			return false
+		}
+		if targets[i].X < targets[j].Y {
+			return true
+		}
+		if targets[i].X > targets[j].Y {
+			return false
+		}
+		return true
+
+	})
+	moveTo := targets[0]
+	for prev[moveTo] != p {
+		moveTo = prev[moveTo]
+	}
+	fmt.Printf("%v moveTo: %v\n", p, moveTo)
+	(*allies)[moveTo] = (*allies)[p]
+	delete(*allies, p)
+	p.X, p.Y = moveTo.X, moveTo.Y
+	(*moved)[p] = true
 	var nearby2 []Point
 	findEnemy(&nearby2, p.X, p.Y-1, enemies)
 	findEnemy(&nearby2, p.X-1, p.Y, enemies)

@@ -52,6 +52,8 @@ func main() {
 	}
 	round = 0
 	for len(goblins) > 0 && len(elfs) > 0 {
+		round += 1
+		fmt.Printf("goblin: %d, elf: %d\n", len(goblins), len(elfs))
 		fmt.Printf("round %d\n", round)
 		moved := make(map[Point]bool)
 		for y := range nodes {
@@ -72,7 +74,28 @@ func main() {
 
 			}
 		}
-		round += 1
+
+		for y := range nodes {
+			collect := ""
+			for x := range nodes[y] {
+				_, ok := goblins[Point{x, y}]
+				if ok {
+					collect += "G"
+					continue
+				}
+				_, ok = elfs[Point{x, y}]
+				if ok {
+					collect += "E"
+					continue
+				}
+				if nodes[y][x] == nil {
+					collect += "#"
+				} else {
+					collect += "."
+				}
+			}
+			fmt.Println(collect)
+		}
 	}
 	sum := 0
 	if len(goblins) > 0 {
@@ -86,7 +109,7 @@ func main() {
 	}
 	fmt.Println(round)
 	fmt.Println(sum)
-	fmt.Println((round - 1) * sum)
+	fmt.Println(round * sum)
 }
 
 func turn(p Point, enemies *map[Point]int, allies *map[Point]int, nodes *[][]*Node, moved *map[Point]bool) {
